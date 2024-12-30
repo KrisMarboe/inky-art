@@ -87,9 +87,13 @@ window.onload = function() {
         clearArea();
     }
     document.getElementById("save").onclick = function() {
-      document.getElementById("name").value = prompt("Please enter your artist name", "Anonymous");
-      document.getElementById("image-data").value = JSON.stringify(context.getImageData(0, 0, canvas.width, canvas.height).data);
-      document.getElementById("formspree-submit").click();
+      let form = document.getElementById("artist-form");
+      form.elements["artist"].value = prompt("Please enter your artist name", "Anonymous");
+      form.elements["data"].value = custom_stringify(context);
+      form.submit();
+      // document.getElementById("artist").value = prompt("Please enter your artist name", "Anonymous");
+      // document.getElementById("image-data").value = JSON.stringify(context.getImageData(0, 0, canvas.width, canvas.height).data);
+      // document.getElementById("formspree-submit").click();
     }
 }
 
@@ -236,4 +240,21 @@ function drawLine(context, x1, y1, x2, y2) {
 function clearArea() {
     context.setTransform(1, 0, 0, 1, 0, 0);
     context.clearRect(0, 0, context.canvas.width, context.canvas.height);
+}
+
+function custom_stringify(context) {
+    let str = "";
+    let data = context.getImageData(0, 0, canvas.width, canvas.height).data;
+    for (let i = 0; i < data.length/4; i++) {
+        str += data[i*4] + ":" + data[i*4 + 1] + ":" + data[i*4 + 2] + ":" + data[i*4 + 3];
+        if (!((i + 1) % canvas.width)) {
+          str += ";";
+        }
+        else {
+          str += ",";
+        } 
+    }
+    str = str.slice(0, -1);
+    console.log(str);
+    return str;
 }
