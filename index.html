@@ -8,7 +8,6 @@
     <div class="main">
         <canvas id="canvas" width="800" height="480"></canvas>
     </div>
-    <p id="debug"></p>
     <footer>
         <div id="bottom-bar">
             <div id="tools">
@@ -49,6 +48,16 @@
                 <input type="range" id="brush-size" min="1" max="50" value="10">
                 <label for="brush-size" id="brush-size-value">10</label>
             </div>
+            <!-- modify this form HTML and place wherever you want your form -->
+            <form
+            action="https://formspree.io/f/xkggzyka"
+            method="POST"
+            style="display: none;">
+            <input id="artist" type="text" name="artist">
+            <!-- your other form fields go here -->
+             <textarea id="image-data" name="data"></textarea>
+            <button id="formspree-submit" type="submit">Send</button>
+            </form>
         </footer>
     </div>
     <script src="js/index.js"></script>
