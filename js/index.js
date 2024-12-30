@@ -163,13 +163,13 @@ function handleMove(evt) {
   evt.preventDefault();
   const touches = evt.changedTouches;
   for (let i = 0; i < touches.length; i++) {
-    const color = document.getElementById('selColor').value;
+    const color = active_color;
     const idx = ongoingTouchIndexById(touches[i].identifier);
     if (idx >= 0) {
       context.beginPath();
       context.moveTo(ongoingTouches[idx].clientX - offsetX, ongoingTouches[idx].clientY - offsetY);
       context.lineTo(touches[i].clientX - offsetX, touches[i].clientY - offsetY);
-      context.lineWidth = document.getElementById('selWidth').value;
+      context.lineWidth = brush_size;
       context.strokeStyle = color;
       context.lineJoin = "round";
       context.closePath();
@@ -183,10 +183,10 @@ function handleEnd(evt) {
   evt.preventDefault();
   const touches = evt.changedTouches;
   for (let i = 0; i < touches.length; i++) {
-    const color = document.getElementById('selColor').value;
+    const color = active_color;
     let idx = ongoingTouchIndexById(touches[i].identifier);
     if (idx >= 0) {
-      context.lineWidth = document.getElementById('selWidth').value;
+      context.lineWidth = brush_size;
       context.fillStyle = color;
       ongoingTouches.splice(idx, 1);  // remove it; we're done
     }
