@@ -1,6 +1,7 @@
 let active_color;
 let brush_size;
 let saturation;
+let image_loader;
 
 const canvas = document.getElementById('canvas');
 const context = canvas.getContext('2d');
@@ -74,6 +75,33 @@ window.onload = function() {
             }
         }
     }
+    image_loader = document.getElementById("load-img-input");
+    image_loader.onchange = function() {
+        let file = this.files[0];
+        let reader = new FileReader();
+        reader.onload = function(e) {
+            let img = new Image();
+            img.onload = function() {
+              // Set canvas size to image size but not larger than 800x800
+              let width = img.width;
+              let height = img.height;
+              if ((width > height) && (width > 800)) {
+                height *= 800 / width;
+                width = 800;
+              } else if ((height > width) && (height > 800)) {
+                width *= 800 / height;
+                height = 800;
+              }
+              canvas.width = width;
+              canvas.height = height;
+
+              // Draw image on canvas
+              context.drawImage(img, 0, 0, width, height);
+            }
+            img.src = e.target.result;
+        }
+        reader.readAsDataURL(file);
+    }
     document.getElementById("brush-size").oninput = function() {
         brush_size = this.value;
         document.getElementById("brush-size-value").innerHTML = brush_size;
@@ -82,18 +110,19 @@ window.onload = function() {
         saturation = this.value;
         document.getElementById("saturation-value").innerHTML = parseFloat(saturation).toFixed(1);
         update_color_palette(saturation);
+        active_color = set_active_color(saturation);
     }
-    document.getElementById("clear").onclick = function() {
-        clearArea();
+    document.getElementById("upload").onclick = function() {
+      image_loader.click();
     }
     document.getElementById("save").onclick = function() {
       let form = document.getElementById("artist-form");
       form.elements["artist"].value = prompt("Please enter your artist name", "Anonymous");
       form.elements["data"].value = custom_stringify(context);
       form.submit();
-      // document.getElementById("artist").value = prompt("Please enter your artist name", "Anonymous");
-      // document.getElementById("image-data").value = JSON.stringify(context.getImageData(0, 0, canvas.width, canvas.height).data);
-      // document.getElementById("formspree-submit").click();
+    }
+    document.getElementById("clear").onclick = function() {
+        clearArea();
     }
 }
 
@@ -123,6 +152,11 @@ let saturate = function(color, saturation) {
 
 let parse_rgb = function(rgb) {
     return "rgb(" + rgb[0] + ", " + rgb[1] + ", " + rgb[2] + ")";
+}
+
+let set_active_color = function(saturation) {
+    let color = document.getElementsByClassName("active-color")[0].children[0].id;
+    return parse_rgb(saturate(color, saturation));
 }
 
 function startup() {
@@ -238,8 +272,11 @@ function drawLine(context, x1, y1, x2, y2) {
 }
 
 function clearArea() {
-    context.setTransform(1, 0, 0, 1, 0, 0);
-    context.clearRect(0, 0, context.canvas.width, context.canvas.height);
+  // Set width to 800x480
+  canvas.width = 800;
+  canvas.height = 480;
+  context.setTransform(1, 0, 0, 1, 0, 0);
+  context.clearRect(0, 0, context.canvas.width, context.canvas.height);
 }
 
 function custom_stringify(context) {
