@@ -10,6 +10,8 @@ let y = 0;
 var offsetX;
 var offsetY;
 
+let debug_element;
+
 let saturated_colors = {
     "black": [57, 48, 57],
     "white": [255, 255, 255],
@@ -86,6 +88,7 @@ window.onload = function() {
     document.getElementById("clear").onclick = function() {
         clearArea();
     }
+    debug_element = document.getElementById("debug");
 }
 
 let update_color_palette = function(saturation) {
@@ -151,6 +154,7 @@ const ongoingTouches = [];
 
 function handleStart(evt) {
   evt.preventDefault();
+  debug_element.innerHTML = "start";
   const touches = evt.changedTouches;
   offsetX = canvas.getBoundingClientRect().left;
   offsetY = canvas.getBoundingClientRect().top;
@@ -161,6 +165,7 @@ function handleStart(evt) {
 
 function handleMove(evt) {
   evt.preventDefault();
+  debug_element.innerHTML = "move: " + ongoingTouches.length + " touches";
   const touches = evt.changedTouches;
   for (let i = 0; i < touches.length; i++) {
     const color = active_color;
@@ -181,6 +186,7 @@ function handleMove(evt) {
 
 function handleEnd(evt) {
   evt.preventDefault();
+  debug_element.innerHTML = "end";
   const touches = evt.changedTouches;
   for (let i = 0; i < touches.length; i++) {
     const color = active_color;
@@ -195,6 +201,7 @@ function handleEnd(evt) {
 
 function handleCancel(evt) {
   evt.preventDefault();
+  debug_element.innerHTML = "cancel";
   const touches = evt.changedTouches;
   for (let i = 0; i < touches.length; i++) {
     let idx = ongoingTouchIndexById(touches[i].identifier);
