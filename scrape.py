@@ -1,6 +1,8 @@
 # import 
 import os
 import dotenv
+import numpy as np
+from PIL import Image
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 
@@ -37,9 +39,32 @@ driver.find_element(By.CSS_SELECTOR, "button[type='submit']").click()
 
 # Wait for the page to load, timeout after 10 seconds
 try:
-    element = WebDriverWait(driver, 10).until(
-        EC.presence_of_element_located((By.ID, "form-list"))
+    element = WebDriverWait(driver, 30).until(
+        EC.presence_of_element_located((By.CSS_SELECTOR, "#body > div > div > div > div > div > section > div > div > div.group"))
     )
 except TimeoutException:
     print("Timed out waiting for page to load")
     driver.quit()
+
+submissions_data = driver.find_elements(By.CSS_SELECTOR, "#body > div > div > div > div > div > section > div > div > div.group > div.grow")
+
+for i, submission in enumerate(submissions_data):
+    print(f"Downloading image {i}...")
+    image = [[[int(val) for val in column.split(":")] for column in row.split(",")] for row in submission.text.split(";")]
+    # Convert to numpy array
+    image = np.array(image)
+    # Convert to image
+    image = Image.fromarray(image.astype(np.uint8))
+    # Save image
+    image.save(f"art/image{i}.png")
+
+# Delete the submissions after downloading
+# Locate "Mark all" button
+mark_all = driver.find_element(By.CSS_SELECTOR, "#body > div > div > div > div > div > section > div > div > div.flex > div > button")
+mark_all.click()
+
+delete_all = driver.find_elements(By.CSS_SELECTOR, "#body > div > div > div > div > div > section > div > div.flex > button.ml-3")[-1]
+delete_all.click()
+
+# Close the browser
+driver.quit()

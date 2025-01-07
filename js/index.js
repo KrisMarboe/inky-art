@@ -1,282 +1,201 @@
-let active_color;
-let brush_size;
-let saturation;
-let image_loader;
-
-const canvas = document.getElementById('canvas');
-const context = canvas.getContext('2d');
-let isDrawing = false;
-let x = 0;
-let y = 0;
-var offsetX;
-var offsetY;
-
-let saturated_colors = {
-    "black": [57, 48, 57],
-    "white": [255, 255, 255],
-    "green": [58, 91, 70],
-    "blue": [61, 59, 94],
-    "red": [156, 72, 75],
-    "yellow": [208, 190, 71],
-    "orange": [177, 106, 73]
-}
-let desaturated_colors = {
-    "black": [0, 0, 0],
-    "white": [255, 255, 255],
-    "green": [0, 255, 0],
-    "blue": [0, 0, 255],
-    "red": [255, 0, 0],
-    "yellow": [255, 255, 0],
-    "orange": [255, 140, 0]
-}
+let canvas = document.getElementById("canvas");
+let ctx = canvas.getContext("2d");
+let full_picture_canvas = document.createElement("canvas");
+let full_picture_ctx = full_picture_canvas.getContext("2d");
+let resized_canvas = document.createElement("canvas");
+let resized_ctx = resized_canvas.getContext("2d");
+let expand_button = document.getElementById("expand");
+let upload_button = document.getElementById("upload");
+let upload_input = document.getElementById("load-img-input");
+let save_button = document.getElementById("save");
+let img;
+let active_point = null;
+let croping_point_radius = 20;
+let mouse_down = false;
+let last_mouse_position = {x: 0, y: 0};
+let inky_size = 800;
+let cropping_points = [];
 
 window.onload = function() {
-    brush_size = parseInt(document.getElementById("brush-size-value").innerHTML);
-    document.getElementById("brush-size").value = brush_size;
-    saturation = parseFloat(document.getElementById("saturation-value").innerHTML);
-    document.getElementById("saturation").value = saturation;
-    update_color_palette(saturation);
-    
-    let colors_div = document.getElementById("colors");
-    // Loop through color divs
-    let color_div;
-    let color_icon;
-    for (let i = 0; i < colors_div.children.length; i++) {
-        color_div = colors_div.children[i];
-        color_icon = color_div.children[0];
 
-        // Set background color of color icon to match saturation
-        update_color(color_icon, saturation);
-        if (color_div.classList.contains("active-color")) {
-            active_color = parse_rgb(saturate(color_icon.id, saturation));
-        }
-        if (color_icon.id === "color-picker") {
-            color_icon.onclick = function() {
-                let color_picker = document.getElementById("color-picker-input");
-                color_picker.click();
-                color_picker.onchange = function() {
-                    let color = color_picker.value;
-                    let color_icon = document.getElementById("color-picker");
-                    color_icon.style.backgroundColor = color;
-                    active_color = color;
-                    let active_color_div = document.getElementsByClassName("active-color")[0];
-                    active_color_div.classList.remove("active-color");
-                    color_div = this.parentElement;
-                    color_div.classList.add("active-color");
-                }
-            }
+    // Add button functionality
+    expand_button.onclick = toggle_options;
+    upload_button.onclick = upload_image;
+    save_button.onclick = save_image;
+    upload_input.onchange = overwrite_canvas;
+    canvas.onmousemove = function(e) {
+        if (!mouse_down) return;
+        
+        let rect = canvas.getBoundingClientRect();
+        let x = e.clientX - rect.left;
+        let y = e.clientY - rect.top;
+        
+        if (active_point == null) {
+            // Move all points
+            let dx = x - last_mouse_position.x;
+            let dy = y - last_mouse_position.y;
+            cropping_points.forEach(point => {
+                point.x = Math.max(0, Math.min(canvas.width, point.x + dx));
+                point.y = Math.max(0, Math.min(canvas.height, point.y + dy));
+            });
+            last_mouse_position = {x: x, y: y};
+
         } else {
-            color_icon.onclick = function() {
-                active_color = parse_rgb(saturate(this.id, saturation));
-                let active_color_div = document.getElementsByClassName("active-color")[0];
-                active_color_div.classList.remove("active-color");
-                color_div = this.parentElement;
-                color_div.classList.add("active-color");
+            cropping_points[active_point].x = x;
+            cropping_points[active_point].y = y;
+
+            left_point = active_point == 0 ? 3 : active_point - 1;
+            right_point = active_point == 3 ? 0 : active_point + 1;
+            if (active_point % 2 == 0) {
+                // Update left and right points
+                cropping_points[left_point].x = x;
+                cropping_points[right_point].y = y;
+            } else {
+                // Update top and bottom points
+                cropping_points[left_point].y = y;
+                cropping_points[right_point].x = x;
             }
         }
-    }
-    image_loader = document.getElementById("load-img-input");
-    image_loader.onchange = function() {
-        let file = this.files[0];
-        let reader = new FileReader();
-        reader.onload = function(e) {
-            let img = new Image();
-            img.onload = function() {
-              // Set canvas size to image size but not larger than 800x800
-              let width = img.width;
-              let height = img.height;
-              if ((width > height) && (width > 800)) {
-                height *= 800 / width;
-                width = 800;
-              } else if ((height > width) && (height > 800)) {
-                width *= 800 / height;
-                height = 800;
-              }
-              canvas.width = width;
-              canvas.height = height;
 
-              // Draw image on canvas
-              context.drawImage(img, 0, 0, width, height);
+        draw_canvas();
+    };
+
+    canvas.onmousedown = function(e) {
+        let rect = canvas.getBoundingClientRect();
+        let x = e.clientX - rect.left;
+        let y = e.clientY - rect.top;
+        mouse_down = true;
+
+        active_point = null;
+        for (let i = 0; i < cropping_points.length; i++) {
+            let point = cropping_points[i];
+            let distance = Math.sqrt((point.x - x) ** 2 + (point.y - y) ** 2);
+            if (distance < croping_point_radius) { // Assuming 10 is the radius of the cropping points
+                active_point = i;
+                return;
             }
-            img.src = e.target.result;
         }
-        reader.readAsDataURL(file);
+
+        if (active_point == null) {
+            // Check if mouse is inside the cropping area
+            mouse_down = (
+                x > cropping_points[0].x) && (
+                    x < cropping_points[2].x) && (
+                        y > cropping_points[0].y) && (
+                            y < cropping_points[2].y);
+            last_mouse_position = {x: x, y: y};
+        }
+    };
+    canvas.onmouseup = function(e) {
+        mouse_down = false;
+        active_point = null;
+    };
+    canvas.onmouseleave = function(e) {
+        mouse_down = false;
+        active_point = null;
+    };
+ }
+ 
+ function overwrite_canvas() {
+    let file = this.files[0];
+    let reader = new FileReader();
+    reader.onload = function(e) {
+        img = new Image();
+        img.onload = function() {
+            // Set canvas size to image size but not larger than window size
+            let width = img.width;
+            let height = img.height;
+            let window_width = window.innerWidth;
+            let window_height = window.innerHeight;
+            if (width / height > window_width / window_height) {
+                width = window_width * 0.9;
+                height *= width / img.width;
+            } else {
+                height = window_height * 0.9;
+                width *= height / img.height;
+            }
+            canvas.width = width;
+            canvas.height = height;
+            full_picture_canvas.width = img.width;
+            full_picture_canvas.height = img.height;
+            full_picture_ctx.drawImage(img, 0, 0);
+
+            // Draw canvas
+            add_cropping_points(canvas.width, canvas.height);
+        }
+        img.src = e.target.result;
     }
-    document.getElementById("brush-size").oninput = function() {
-        brush_size = this.value;
-        document.getElementById("brush-size-value").innerHTML = brush_size;
+    reader.readAsDataURL(file);
+
+    // Show canvas and hide instructions
+    if (canvas.style.display == "none") {
+        canvas.style.display = "block";
+        document.getElementById("instructions").style.display = "none";
     }
-    document.getElementById("saturation").oninput = function() {
-        saturation = this.value;
-        document.getElementById("saturation-value").innerHTML = parseFloat(saturation).toFixed(1);
-        update_color_palette(saturation);
-        active_color = set_active_color(saturation);
-    }
-    document.getElementById("upload").onclick = function() {
-      image_loader.click();
-    }
-    document.getElementById("save").onclick = function() {
-      let form = document.getElementById("artist-form");
-      form.elements["artist"].value = prompt("Please enter your artist name", "Anonymous");
-      form.elements["data"].value = custom_stringify(context);
-      form.submit();
-    }
-    document.getElementById("clear").onclick = function() {
-        clearArea();
-    }
+
+    // Reset input field
+    this.value = "";
 }
 
-let update_color_palette = function(saturation) {
-    let colors_div = document.getElementById("colors");
-    let color_icon;
-    for (let i = 0; i < colors_div.children.length; i++) {
-        color_icon = colors_div.children[i].children[0];
-        update_color(color_icon, saturation);
+function toggle_options() {
+    let options = document.getElementById("options");
+    options.classList.toggle("slide-down")
+    let expand_text = expand_button.innerHTML;
+    expand_button.innerHTML = expand_text == "+" ? "-" : "+";
+    expand_button.style.backgroundColor = expand_text == "+" ? "red" : "green";
+}
+
+function upload_image() {
+    upload_input.click();
+}
+
+function save_image() {
+    let form = document.getElementById("artist-form");
+    form.elements["artist"].value = prompt("Please enter your artist name", "Anonymous");
+    form.elements["data"].value = extract_cropping_and_resize();
+    
+    // form.submit();
+
+}
+
+function extract_cropping_and_resize() {
+    // Get cropping points in full picture coordinates
+    let cropping_points_full_picture = [];
+    let width_ratio = full_picture_canvas.width / canvas.width;
+    let height_ratio = full_picture_canvas.height / canvas.height;
+    cropping_points.forEach(point => {
+        cropping_points_full_picture.push({
+            x: Math.round(point.x * width_ratio),
+            y: Math.round(point.y * height_ratio)
+        });
+    });
+
+    // Crop image
+    let cropped_img = full_picture_ctx.getImageData(
+        cropping_points_full_picture[0].x, cropping_points_full_picture[0].y,
+        cropping_points_full_picture[1].x - cropping_points_full_picture[0].x,
+        cropping_points_full_picture[2].y - cropping_points_full_picture[1].y
+    );
+
+    // Resize image
+    if (cropped_img.width > cropped_img.height) {
+        let new_height = inky_size * cropped_img.height / cropped_img.width;
+        resized_canvas.width = inky_size;
+        resized_canvas.height = new_height;
+    } else {
+        let new_width = inky_size * cropped_img.width / cropped_img.height;
+        resized_canvas.width = new_width;
+        resized_canvas.height = inky_size;
     }
-}
 
-let update_color = function(color_icon, saturation) {
-    if (color_icon.id !== "color-picker") {    
-        rgb = saturate(color_icon.id, saturation)
-        color_icon.style.backgroundColor = parse_rgb(rgb);
-    }
-}
+    console.log(resized_canvas.width, resized_canvas.height);
+    console.log(cropped_img)
+    resized_ctx.drawImage(cropped_img, 0, 0, resized_canvas.width, resized_canvas);
 
-let saturate = function(color, saturation) {
-    let rgb = [0, 0, 0];
-    for (let i = 0; i < 3; i++) {
-        rgb[i] = saturated_colors[color][i] * saturation + desaturated_colors[color][i] * (1 - saturation);
-    }
-    return rgb;
-}
+    // Get custom string
+    let custom_str = custom_stringify(resized_ctx);
 
-let parse_rgb = function(rgb) {
-    return "rgb(" + rgb[0] + ", " + rgb[1] + ", " + rgb[2] + ")";
-}
-
-let set_active_color = function(saturation) {
-    let color = document.getElementsByClassName("active-color")[0].children[0].id;
-    return parse_rgb(saturate(color, saturation));
-}
-
-function startup() {
-  canvas.addEventListener('touchstart', handleStart);
-  canvas.addEventListener('touchend', handleEnd);
-  canvas.addEventListener('touchcancel', handleCancel);
-  canvas.addEventListener('touchmove', handleMove);
-  canvas.addEventListener('mousedown', (e) => {
-    x = e.offsetX;
-    y = e.offsetY;
-    isDrawing = true;
-  });
-
-  canvas.addEventListener('mousemove', (e) => {
-    if (isDrawing) {
-      drawLine(context, x, y, e.offsetX, e.offsetY);
-      x = e.offsetX;
-      y = e.offsetY;
-    }
-  });
-
-  canvas.addEventListener('mouseup', (e) => {
-    if (isDrawing) {
-      drawLine(context, x, y, e.offsetX, e.offsetY);
-      x = 0;
-      y = 0;
-      isDrawing = false;
-    }
-  });
-}
-
-document.addEventListener("DOMContentLoaded", startup);
-
-const ongoingTouches = [];
-
-function handleStart(evt) {
-  evt.preventDefault();
-  const touches = evt.changedTouches;
-  offsetX = canvas.getBoundingClientRect().left;
-  offsetY = canvas.getBoundingClientRect().top;
-  for (let i = 0; i < touches.length; i++) {
-    ongoingTouches.push(copyTouch(touches[i]));
-  }
-}
-
-function handleMove(evt) {
-  evt.preventDefault();
-  const touches = evt.changedTouches;
-  for (let i = 0; i < touches.length; i++) {
-    const color = active_color;
-    const idx = ongoingTouchIndexById(touches[i].identifier);
-    if (idx >= 0) {
-      context.beginPath();
-      context.moveTo(ongoingTouches[idx].clientX - offsetX, ongoingTouches[idx].clientY - offsetY);
-      context.lineTo(touches[i].clientX - offsetX, touches[i].clientY - offsetY);
-      context.lineWidth = brush_size;
-      context.strokeStyle = color;
-      context.lineJoin = "round";
-      context.closePath();
-      context.stroke();
-      ongoingTouches.splice(idx, 1, copyTouch(touches[i]));  // swap in the new touch record
-    }
-  }
-}
-
-function handleEnd(evt) {
-  evt.preventDefault();
-  const touches = evt.changedTouches;
-  for (let i = 0; i < touches.length; i++) {
-    const color = active_color;
-    let idx = ongoingTouchIndexById(touches[i].identifier);
-    if (idx >= 0) {
-      context.lineWidth = brush_size;
-      context.fillStyle = color;
-      ongoingTouches.splice(idx, 1);  // remove it; we're done
-    }
-  }
-}
-
-function handleCancel(evt) {
-  evt.preventDefault();
-  const touches = evt.changedTouches;
-  for (let i = 0; i < touches.length; i++) {
-    let idx = ongoingTouchIndexById(touches[i].identifier);
-    ongoingTouches.splice(idx, 1);  // remove it; we're done
-  }
-}
-
-function copyTouch({ identifier, clientX, clientY }) {
-  return { identifier, clientX, clientY };
-}
-
-function ongoingTouchIndexById(idToFind) {
-  for (let i = 0; i < ongoingTouches.length; i++) {
-    const id = ongoingTouches[i].identifier;
-    if (id === idToFind) {
-      return i;
-    }
-  }
-  return -1;    // not found
-}
-
-function drawLine(context, x1, y1, x2, y2) {
-  context.beginPath();
-  
-  context.strokeStyle = active_color;
-  context.lineWidth = brush_size;
-  context.lineJoin = "round";
-  context.moveTo(x1, y1);
-  context.lineTo(x2, y2);
-  context.closePath();
-  context.stroke();
-}
-
-function clearArea() {
-  // Set width to 800x480
-  canvas.width = 800;
-  canvas.height = 480;
-  context.setTransform(1, 0, 0, 1, 0, 0);
-  context.clearRect(0, 0, context.canvas.width, context.canvas.height);
+    return custom_str;
 }
 
 function custom_stringify(context) {
@@ -294,4 +213,54 @@ function custom_stringify(context) {
     str = str.slice(0, -1);
     console.log(str);
     return str;
+}
+
+function add_cropping_points(width, height) {
+    // Add cropping points (one in each corner in order [top-left, top-right, bottom-right, bottom-left])
+    cropping_points = [];
+    cropping_points.push({x: 0, y: 0});
+    cropping_points.push({x: width, y: 0});
+    cropping_points.push({x: width, y: height});
+    cropping_points.push({x: 0, y: height});
+    draw_canvas();
+}
+
+function draw_canvas() {
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = "red";
+    ctx.lineWidth = 5;
+    ctx.setLineDash([]);
+    cropping_points.forEach(point => {
+        ctx.beginPath();
+        ctx.arc(point.x, point.y, croping_point_radius, 0, 2 * Math.PI);
+        ctx.stroke();
+    });
+    // Draw lines between points
+    ctx.setLineDash([10, 5]);
+    ctx.beginPath();
+    ctx.moveTo(cropping_points[0].x, cropping_points[0].y);
+    cropping_points.forEach(point => {
+        ctx.lineTo(point.x, point.y);
+    });
+    ctx.closePath();
+    ctx.stroke();
+    // Draw darkened areas from image outside of cropping points
+    ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
+    let points = [
+        [{x: 0, y: 0}, cropping_points[0], cropping_points[1], {x: canvas.width, y: 0}],
+        [{x: canvas.width, y: 0}, cropping_points[1], cropping_points[2], {x: canvas.width, y: canvas.height}],
+        [{x: canvas.width, y: canvas.height}, cropping_points[2], cropping_points[3], {x: 0, y: canvas.height}],
+        [{x: 0, y: canvas.height}, cropping_points[3], cropping_points[0], {x: 0, y: 0}]
+    ];
+
+    points.forEach(pointSet => {
+        ctx.beginPath();
+        ctx.moveTo(pointSet[0].x, pointSet[0].y);
+        pointSet.forEach(point => {
+            ctx.lineTo(point.x, point.y);
+        });
+        ctx.closePath();
+        ctx.fill();
+    });
+
 }

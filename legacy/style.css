@@ -1,0 +1,85 @@
+body {
+    font-family: 'Roboto', sans-serif;
+    margin: 0;
+    margin-bottom: 2rem;
+    padding: 0;
+    background-color: #5e5d5d;
+    overflow-y: auto;
+}
+
+canvas {
+    display: block;
+    background-color: white;
+    box-shadow: 0 0 1rem rgba(0, 0, 0, 0.1);
+    margin: 1rem auto 6rem auto;
+}
+
+#bottom-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background-color: #333;
+    justify-content: center;
+    padding: 0.5rem;
+}
+
+#bottom-bar > div {
+    display: inline-block;
+    margin: 0 1rem;
+}
+
+.icon-item {
+    display: inline-block;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 0.5rem;
+    vertical-align: middle;
+    cursor: pointer;
+    margin: 0.3rem;
+}
+
+.icon-item:hover {
+    filter: brightness(0.7);
+}
+
+.icon-item:active {
+    filter: brightness(0.5);
+}
+
+.color-item {
+    border-radius: 50%;
+    width: 1.5rem;
+    height: 1.5rem;
+}
+
+.color-item-wrapper {
+    display: inline-block;
+    padding: 0.2rem;
+    margin: 0.2rem;
+    border-radius: 50%;
+}
+
+.color-item-wrapper.active-color {
+    border: 0.2rem dashed white;
+    margin: 0;
+}
+
+#color-picker {
+    background: linear-gradient(90deg, rgba(255,0,0,1) 0%, rgba(255,255,0,1) 21%, rgba(0,255,2,1) 43%, rgba(0,247,255,1) 65%, rgba(0,7,255,1) 84%, rgba(255,0,255,1) 100%);
+}
+
+#tools {
+    display: inline-block;
+    vertical-align: middle;
+}
+
+label {
+    display: inline-block;
+    margin: 0;
+    color: white;
+}
+
+input[type="range"] {
+    width: 6rem;
+}
